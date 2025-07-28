@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Time Format Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        select { padding: 8px; margin: 5px; width: 200px; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Admin Time Format Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Time Formatting Functions</h3>
+        <button onclick="testTimeFormatting()">Test Time Functions</button>
+        <div id="timeTestResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Dropdown Population</h3>
+        <select id="testStartTime">
+            <option value="">Select Start Time</option>
+        </select>
+        <select id="testEndTime">
+            <option value="">Select End Time</option>
+        </select>
+        <button onclick="testDropdownPopulation()">Populate Dropdowns</button>
+    </div>
+
+    <script>
+        // Copy the time formatting functions from admin.js
+        function formatTime12h(time24h) {
+            // Add validation to ensure we're getting a proper time format
+            if (!time24h || typeof time24h !== 'string') {
+                console.error('Invalid time format:', time24h);
+                return time24h;
+            }
+            
+            // Check if it's a time range (contains '-')
+            if (time24h.includes('-')) {
+                console.error('Time range passed to formatTime12h:', time24h);
+                return time24h; // Return as-is if it's a range
+            }
+            
+            const [hours, minutes] = time24h.split(':');
+            if (!hours || !minutes) {
+                console.error('Invalid time format (missing hours or minutes):', time24h);
+                return time24h;
+            }
+            
+            const hour = parseInt(hours, 10);
+            if (isNaN(hour) || hour < 0 || hour > 23) {
+                console.error('Invalid hour:', hour, 'from time:', time24h);
+                return time24h;
+            }
+            
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            return `${hour12}:${minutes} ${ampm}`;
+        }
+
+        function formatTimeRange(startTime, endTime) {
+            return `${formatTime12h(startTime)} - ${formatTime12h(endTime)}`;
+        }
+
+        function getAll24hTimes() {
+            const times = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+            console.log('Generated 24h times:', times);
+            return times;
+        }
+
+        function getAvailableEndTimes(startTime) {
+            if (!startTime) return [];
+            console.log('Getting end times for start time:', startTime);
+            
+            const allTimes = getAll24hTimes();
+            const startIdx = allTimes.indexOf(startTime);
+            console.log('Start time index:', startIdx);
+            
+            if (startIdx === -1) return [];
+            
+            const endTimes = [];
+            for (let i = startIdx + 1; i < 24; i++) {
+                endTimes.push(allTimes[i]);
+            }
+            console.log('Available end times:', endTimes);
+            return endTimes;
+        }
+
+        function testTimeFormatting() {
+            const resultDiv = document.getElementById('timeTestResult');
+            let result = '<h4>Time Formatting Test Results:</h4>';
+            
+            // Test individual times
+            const testTimes = ['00:00', '01:00', '12:00', '13:00', '14:00', '23:00'];
+            testTimes.forEach(time => {
+                const formatted = formatTime12h(time);
+                result += `<div>${time} -> ${formatted}</div>`;
+            });
+            
+            // Test time ranges
+            result += '<h4>Time Range Tests:</h4>';
+            const testRanges = [
+                ['13:00', '14:00'],
+                ['09:00', '10:00'],
+                ['23:00', '00:00']
+            ];
+            testRanges.forEach(([start, end]) => {
+                const formatted = formatTimeRange(start, end);
+                result += `<div>${start}-${end} -> ${formatted}</div>`;
+            });
+            
+            // Test error cases
+            result += '<h4>Error Case Tests:</h4>';
+            const errorCases = ['13:00-14:00', 'invalid', null, undefined];
+            errorCases.forEach(test => {
+                const formatted = formatTime12h(test);
+                result += `<div>"${test}" -> "${formatted}"</div>`;
+            });
+            
+            resultDiv.innerHTML = result;
+        }
+
+        function testDropdownPopulation() {
+            const startSelect = document.getElementById('testStartTime');
+            const endSelect = document.getElementById('testEndTime');
+            
+            // Clear existing options
+            startSelect.innerHTML = '<option value="">Select Start Time</option>';
+            endSelect.innerHTML = '<option value="">Select End Time</option>';
+            
+            // Get all times
+            const allTimes = getAll24hTimes();
+            
+            // Populate start time dropdown
+            allTimes.forEach(time => {
+                const option = document.createElement('option');
+                option.value = time;
+                const formattedTime = formatTime12h(time);
+                option.textContent = formattedTime;
+                console.log(`Time slot: "${time}" -> formatted: "${formattedTime}"`);
+                startSelect.appendChild(option);
+            });
+            
+            // Test end time population for a specific start time
+            const testStartTime = '13:00';
+            const endTimes = getAvailableEndTimes(testStartTime);
+            
+            endTimes.forEach(time => {
+                const option = document.createElement('option');
+                option.value = time;
+                const formattedTime = formatTime12h(time);
+                option.textContent = formattedTime;
+                console.log(`End time slot: "${time}" -> formatted: "${formattedTime}"`);
+                endSelect.appendChild(option);
+            });
+            
+            console.log('Dropdown population test completed');
+        }
+    </script>
+</body>
+</html> 

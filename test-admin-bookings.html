@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Bookings Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Admin Bookings Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Admin Bookings Endpoint</h3>
+        <button onclick="testAdminBookings()">Test Fetch All Bookings</button>
+        <div id="bookingsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Bookings Table</h3>
+        <div id="bookingsTable"></div>
+    </div>
+
+    <script>
+        async function testAdminBookings() {
+            const resultDiv = document.getElementById('bookingsResult');
+            resultDiv.innerHTML = '<p>Testing admin bookings endpoint...</p>';
+            
+            try {
+                console.log('Testing admin bookings endpoint...');
+                
+                // Test without token first
+                const response = await fetch('http://localhost:3001/api/admin/bookings');
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                let result = `<h4>Admin Bookings Test Results:</h4>`;
+                result += `<p><strong>Status:</strong> ${response.status}</p>`;
+                result += `<p><strong>Success:</strong> ${data.success}</p>`;
+                
+                if (data.success && data.bookings) {
+                    result += `<p class="success">✅ Admin endpoint working!</p>`;
+                    result += `<p><strong>Total bookings found:</strong> ${data.bookings.length}</p>`;
+                    
+                    // Display bookings in a table
+                    displayBookingsTable(data.bookings);
+                    
+                    // Show first few bookings
+                    if (data.bookings.length > 0) {
+                        result += `<h4>First 5 Bookings:</h4>`;
+                        data.bookings.slice(0, 5).forEach((booking, index) => {
+                            result += `<div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 3px;">`;
+                            result += `<strong>Booking ${index + 1}:</strong><br>`;
+                            result += `ID: ${booking._id}<br>`;
+                            result += `Booking ID: ${booking.bookingId}<br>`;
+                            result += `User: ${booking.userId?.name || booking.userId || 'N/A'}<br>`;
+                            result += `Ground: ${booking.groundId?.name || booking.groundId || 'N/A'}<br>`;
+                            result += `Date: ${booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString() : 'N/A'}<br>`;
+                            result += `Status: ${booking.status}<br>`;
+                            result += `Amount: ${booking.pricing?.totalAmount || 'N/A'}<br>`;
+                            result += `</div>`;
+                        });
+                    } else {
+                        result += `<p class="error">❌ No bookings found in database</p>`;
+                    }
+                } else {
+                    result += `<p class="error">❌ Admin endpoint not working as expected</p>`;
+                    result += `<p><strong>Error:</strong> ${data.message || 'Unknown error'}</p>`;
+                }
+                
+                resultDiv.innerHTML = result;
+                
+            } catch (error) {
+                console.error('Error testing admin bookings:', error);
+                resultDiv.innerHTML = `<p class="error">❌ Error testing admin bookings: ${error.message}</p>`;
+            }
+        }
+
+        function displayBookingsTable(bookings) {
+            const tableDiv = document.getElementById('bookingsTable');
+            
+            if (bookings.length === 0) {
+                tableDiv.innerHTML = '<p>No bookings found</p>';
+                return;
+            }
+            
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Booking ID</th>
+                            <th>User</th>
+                            <th>Ground</th>
+                            <th>Date</th>
+                            <th>Time Slot</th>
+                            <th>Status</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            bookings.forEach(booking => {
+                const userName = booking.userId?.name || booking.userId || 'N/A';
+                const groundName = booking.groundId?.name || booking.groundId || 'N/A';
+                const date = booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString() : 'N/A';
+                const timeSlot = booking.timeSlot ? `${booking.timeSlot.startTime}-${booking.timeSlot.endTime}` : 'N/A';
+                const amount = booking.pricing?.totalAmount || 'N/A';
+                
+                tableHtml += `
+                    <tr>
+                        <td>${booking.bookingId || 'N/A'}</td>
+                        <td>${userName}</td>
+                        <td>${groundName}</td>
+                        <td>${date}</td>
+                        <td>${timeSlot}</td>
+                        <td>${booking.status || 'N/A'}</td>
+                        <td>${amount}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHtml += '</tbody></table>';
+            tableDiv.innerHTML = tableHtml;
+        }
+    </script>
+</body>
+</html> 

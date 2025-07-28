@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoxCric Admin Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>BoxCric Admin Panel</h1>
+      <div id="loginSection">
+        <form id="loginForm">
+          <input type="email" id="email" placeholder="Email" required>
+          <input type="password" id="password" placeholder="Password" required>
+          <button type="submit">Login</button>
+        </form>
+      </div>
+      <div id="userSection" style="display: none;">
+        <span id="userEmail"></span>
+        <button onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <main id="mainContent" style="display: none;">
+      <nav>
+        <button onclick="showSection('grounds')" class="nav-btn active">Grounds</button>
+        <button onclick="showSection('locations')" class="nav-btn">Locations</button>
+        <button onclick="showSection('bookings')" class="nav-btn">Bookings</button>
+      </nav>
+
+      <!-- Grounds Section -->
+      <section id="groundsSection">
+        <div class="section-header">
+          <h2>Manage Grounds</h2>
+          <button onclick="showAddGroundForm()" class="btn-primary">Add New Ground</button>
+        </div>
+
+        <!-- Add Ground Form -->
+        <div id="addGroundForm" style="display: none;" class="form-container">
+          <h3>Add New Ground</h3>
+          <form id="groundForm">
+            <input type="hidden" id="ownerUserId" />
+            <!-- Basic Information -->
+            <div class="form-group">
+              <h4>Basic Information</h4>
+              <input type="text" id="groundName" placeholder="Ground Name" required>
+              <textarea id="groundDescription" placeholder="Description" required></textarea>
+            </div>
+
+            <!-- Location -->
+            <div class="form-group">
+              <h4>Location</h4>
+              <select id="groundCity" required>
+                <option value="">Select City</option>
+              </select>
+              <input type="text" id="groundAddress" placeholder="Address" required>
+              <input type="text" id="groundPincode" placeholder="Pincode" required>
+            </div>
+
+            <!-- Pricing -->
+            <div class="form-group">
+              <h4>Pricing</h4>
+              <div id="priceRangesContainer">
+                <div class="price-range-row" data-idx="0" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                  <select class="price-range-start" required style="width: 80px;"></select>
+                  <span>to</span>
+                  <select class="price-range-end" required style="width: 80px;"></select>
+                  <input type="number" class="price-range-perHour" placeholder="Price per Hour (INR)" required style="width: 140px;">
+                </div>
+                <div class="price-range-row" data-idx="1" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                  <select class="price-range-start" disabled required style="width: 80px;"></select>
+                  <span>to</span>
+                  <select class="price-range-end" disabled required style="width: 80px;"></select>
+                  <input type="number" class="price-range-perHour" placeholder="Price per Hour (INR)" required style="width: 140px;">
+                </div>
+              </div>
+              <input type="number" id="groundDiscount" placeholder="Discount (%)" value="0">
+            </div>
+
+            <!-- Images -->
+            <div class="form-group">
+              <h4>Images</h4>
+              <input type="url" id="groundImage1" placeholder="Primary Image URL">
+              <input type="url" id="groundImage2" placeholder="Secondary Image URL">
+              <input type="url" id="groundImage3" placeholder="Additional Image URL">
+            </div>
+
+            <!-- Features -->
+            <div class="form-group">
+              <h4>Features</h4>
+              <select id="groundPitchType" required>
+                <option value="">Select Pitch Type</option>
+                <option value="Artificial Turf">Artificial Turf</option>
+                <option value="Synthetic">Synthetic</option>
+                <option value="Matting">Matting</option>
+                <option value="Concrete">Concrete</option>
+              </select>
+              <input type="number" id="groundCapacity" placeholder="Capacity (players)" required>
+              
+              <div class="checkbox-group">
+                <label><input type="checkbox" id="groundLighting"> Lighting</label>
+                <label><input type="checkbox" id="groundParking"> Parking</label>
+                <label><input type="checkbox" id="groundChangeRoom"> Change Room</label>
+                <label><input type="checkbox" id="groundWashroom"> Washroom</label>
+                <label><input type="checkbox" id="groundCafeteria"> Cafeteria</label>
+                <label><input type="checkbox" id="groundEquipment"> Equipment</label>
+              </div>
+            </div>
+
+            <!-- Amenities -->
+            <div class="form-group">
+              <h4>Amenities</h4>
+              <div class="checkbox-group">
+                <label><input type="checkbox" value="Floodlights"> Floodlights</label>
+                <label><input type="checkbox" value="Parking"> Parking</label>
+                <label><input type="checkbox" value="Washroom"> Washroom</label>
+                <label><input type="checkbox" value="Changing Room"> Changing Room</label>
+                <label><input type="checkbox" value="Drinking Water"> Drinking Water</label>
+                <label><input type="checkbox" value="Cafeteria"> Cafeteria</label>
+                <label><input type="checkbox" value="Equipment Rental"> Equipment Rental</label>
+                <label><input type="checkbox" value="First Aid"> First Aid</label>
+                <label><input type="checkbox" value="Shower"> Shower</label>
+                <label><input type="checkbox" value="Lockers"> Lockers</label>
+              </div>
+            </div>
+
+            <!-- Owner Information -->
+            <div class="form-group">
+              <h4>Owner Information</h4>
+              <input type="text" id="ownerName" placeholder="Owner Name" required>
+              <input type="email" id="ownerEmail" placeholder="Owner Email" required>
+              <input type="tel" id="ownerContact" placeholder="Owner Contact" required>
+              <input type="password" id="ownerPassword" placeholder="Owner Password" required>
+            </div>
+
+            <!-- Rating -->
+            <div class="form-group">
+              <h4>Rating</h4>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="number" id="groundRating" placeholder="Rating (0-5)" min="0" max="5" step="0.1" style="width: 150px;">
+                <span style="color: #666; font-size: 14px;">out of 5 stars</span>
+              </div>
+              <input type="number" id="groundRatingCount" placeholder="Number of reviews" min="0" style="width: 150px;">
+            </div>
+
+            <!-- Policies -->
+            <div class="form-group">
+              <h4>Policies</h4>
+              <textarea id="cancellationPolicy" placeholder="Cancellation Policy"></textarea>
+              <input type="number" id="advanceBooking" placeholder="Advance Booking (days)" value="30">
+              <textarea id="groundRules" placeholder="Ground Rules (one per line)"></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Add Ground</button>
+              <button type="button" onclick="hideAddGroundForm()" class="btn-secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Grounds List -->
+        <div id="groundsList">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>City</th>
+                <th>Price/Hour</th>
+                <th>Rating</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="groundsTableBody">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Locations Section -->
+      <section id="locationsSection" style="display: none;">
+        <div class="section-header">
+          <h2>Manage Locations</h2>
+          <button onclick="showAddLocationForm()" class="btn-primary">Add New Location</button>
+        </div>
+
+        <!-- Add Location Form -->
+        <div id="addLocationForm" style="display: none;" class="form-container">
+          <h3>Add New Location</h3>
+          <form id="locationForm">
+            <input type="text" id="locationId" placeholder="Location ID (e.g., kolkata)" required>
+            <input type="text" id="locationName" placeholder="Location Name" required>
+            <input type="text" id="locationState" placeholder="State" required>
+            <input type="number" id="locationLat" placeholder="Latitude" step="any" required>
+            <input type="number" id="locationLng" placeholder="Longitude" step="any" required>
+            <label><input type="checkbox" id="locationPopular"> Popular Location</label>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Add Location</button>
+              <button type="button" onclick="hideAddLocationForm()" class="btn-secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Locations List -->
+        <div id="locationsList">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>State</th>
+                <th>Popular</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="locationsTableBody">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Bookings Section -->
+      <section id="bookingsSection" style="display: none;">
+        <div class="section-header">
+          <h2>All Bookings</h2>
+          <button onclick="showAddBookingForm()" class="btn-primary">Add New Booking</button>
+          <button onclick="refreshBookings()" class="btn-secondary" style="margin-left: 8px;">🔄 Refresh</button>
+          <input type="text" id="bookingSearchInput" placeholder="Search bookings..." style="margin-left: 16px; padding: 4px 8px; width: 220px;">
+        </div>
+
+        <!-- Add Booking Form -->
+        <div id="addBookingForm" style="display: none;" class="form-container">
+          <h3>Add New Booking</h3>
+          <form id="bookingForm">
+            <!-- Ground Selection -->
+            <div class="form-group">
+              <h4>Ground Selection</h4>
+              <select id="bookingGroundId" required>
+                <option value="">Select Ground</option>
+              </select>
+            </div>
+
+            <!-- Date and Time -->
+            <div class="form-group">
+              <h4>Date and Time</h4>
+              <input type="date" id="bookingDate" min="" required>
+              <div style="display: flex; gap: 12px;">
+                <div style="flex: 1;">
+                  <label>Start Time *</label>
+                  <select id="bookingStartTime" required disabled>
+                    <option value="">Select</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label>End Time *</label>
+                  <select id="bookingEndTime" required disabled>
+                    <option value="">Select</option>
+                  </select>
+                </div>
+              </div>
+              <div id="bookingDuration" style="margin-top: 8px; color: #388e3c; font-weight: 600;"></div>
+            </div>
+
+            <!-- Player Details -->
+            <div class="form-group">
+              <h4>Player Details</h4>
+              <input type="text" id="bookingTeamName" placeholder="Team Name (optional)">
+              <input type="number" id="bookingPlayerCount" placeholder="Number of Players *" min="1" required>
+              <input type="text" id="bookingContactName" placeholder="Contact Person Name *" required>
+              <input type="tel" id="bookingContactPhone" placeholder="Contact Phone *" required>
+              <input type="email" id="bookingContactEmail" placeholder="Contact Email (optional)">
+              <textarea id="bookingRequirements" placeholder="Special Requirements (optional)" rows="2"></textarea>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Create Booking</button>
+              <button type="button" onclick="hideAddBookingForm()" class="btn-secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
+        <div class="section-content" id="bookingsTable">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Booking ID</th>
+                <th>User ID</th>
+                <th>Ground ID</th>
+                <th>Date</th>
+                <th>Time Slot</th>
+                <th>Status</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsTableBody">
+              <!-- Bookings will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Booking Details Modal -->
+  <div id="bookingModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" onclick="closeBookingModal()">&times;</span>
+      <h3>Booking Details</h3>
+      <div id="bookingDetailsContent"></div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteBookingModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>Confirm Delete</h3>
+      <p>Are you sure you want to delete this booking?</p>
+      <button id="confirmDeleteBookingBtn" class="btn-danger">Delete</button>
+      <button onclick="closeDeleteBookingModal()" class="btn-secondary">Cancel</button>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html> 

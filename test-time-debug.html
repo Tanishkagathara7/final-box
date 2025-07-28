@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        select { padding: 8px; margin: 5px; width: 200px; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>Time Debug Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Server Response</h3>
+        <button onclick="testServerResponse()">Test Server Response</button>
+        <div id="serverResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Time Formatting</h3>
+        <button onclick="testTimeFormatting()">Test Time Functions</button>
+        <div id="formatResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Dropdown Population</h3>
+        <select id="testDropdown">
+            <option value="">Select Time</option>
+        </select>
+        <button onclick="testDropdownPopulation()">Populate Dropdown</button>
+        <div id="dropdownResult" class="result"></div>
+    </div>
+
+    <script>
+        // Copy the time formatting functions from admin.js
+        function formatTime12h(time24h) {
+            // Add validation to ensure we're getting a proper time format
+            if (!time24h || typeof time24h !== 'string') {
+                console.error('Invalid time format:', time24h);
+                return time24h;
+            }
+            
+            // Check if it's a time range (contains '-')
+            if (time24h.includes('-')) {
+                console.error('Time range passed to formatTime12h:', time24h);
+                return time24h; // Return as-is if it's a range
+            }
+            
+            const [hours, minutes] = time24h.split(':');
+            if (!hours || !minutes) {
+                console.error('Invalid time format (missing hours or minutes):', time24h);
+                return time24h;
+            }
+            
+            const hour = parseInt(hours, 10);
+            if (isNaN(hour) || hour < 0 || hour > 23) {
+                console.error('Invalid hour:', hour, 'from time:', time24h);
+                return time24h;
+            }
+            
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            return `${hour12}:${minutes} ${ampm}`;
+        }
+
+        function getAll24hTimes() {
+            const times = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+            console.log('Generated 24h times:', times);
+            return times;
+        }
+
+        async function testServerResponse() {
+            const resultDiv = document.getElementById('serverResult');
+            resultDiv.innerHTML = '<p>Testing server response...</p>';
+            
+            try {
+                // Test with a sample ground ID and date
+                const groundId = '507f1f77bcf86cd799439011'; // Sample ground ID
+                const date = new Date().toISOString().split('T')[0]; // Today's date
+                
+                const url = `http://localhost:3001/api/admin/bookings/ground/${groundId}/${date}`;
+                console.log('Testing URL:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log('Response status:', response.status);
+                console.log('Response data:', data);
+                
+                let result = `<h4>Server Response Test Results:</h4>`;
+                result += `<p><strong>Status:</strong> ${response.status}</p>`;
+                result += `<p><strong>Success:</strong> ${data.success}</p>`;
+                
+                if (data.success && data.availability) {
+                    result += `<p class="success">✅ Server response successful!</p>`;
+                    result += `<p><strong>Available slots:</strong> ${data.availability.availableSlots.join(', ')}</p>`;
+                    result += `<p><strong>Booked slots:</strong> ${data.availability.bookedSlots.join(', ')}</p>`;
+                    
+                    // Check if slots are individual times or ranges
+                    if (data.availability.availableSlots.length > 0) {
+                        const firstSlot = data.availability.availableSlots[0];
+                        result += `<p><strong>First available slot:</strong> "${firstSlot}"</p>`;
+                        result += `<p><strong>Is time range (contains "-"):</strong> ${firstSlot.includes('-')}</p>`;
+                        result += `<p><strong>Is individual time (HH:MM format):</strong> ${/^\d{2}:\d{2}$/.test(firstSlot)}</p>`;
+                        
+                        if (firstSlot.includes('-')) {
+                            result += `<p class="error">❌ ERROR: Server is returning time ranges instead of individual times!</p>`;
+                        } else {
+                            result += `<p class="success">✅ Server is returning individual times correctly!</p>`;
+                        }
+                    }
+                } else {
+                    result += `<p class="error">❌ Server response not successful</p>`;
+                    result += `<p><strong>Error:</strong> ${data.message || 'Unknown error'}</p>`;
+                }
+                
+                resultDiv.innerHTML = result;
+                
+            } catch (error) {
+                console.error('Error testing server:', error);
+                resultDiv.innerHTML = `<p class="error">❌ Error testing server: ${error.message}</p>`;
+            }
+        }
+
+        function testTimeFormatting() {
+            const resultDiv = document.getElementById('formatResult');
+            let result = '<h4>Time Formatting Test Results:</h4>';
+            
+            // Test individual times
+            const testTimes = ['00:00', '01:00', '12:00', '13:00', '14:00', '23:00'];
+            testTimes.forEach(time => {
+                const formatted = formatTime12h(time);
+                result += `<div>${time} -> ${formatted}</div>`;
+            });
+            
+            // Test error cases
+            result += '<h4>Error Case Tests:</h4>';
+            const errorCases = ['13:00-14:00', 'invalid', null, undefined];
+            errorCases.forEach(test => {
+                const formatted = formatTime12h(test);
+                result += `<div>"${test}" -> "${formatted}"</div>`;
+            });
+            
+            resultDiv.innerHTML = result;
+        }
+
+        function testDropdownPopulation() {
+            const dropdown = document.getElementById('testDropdown');
+            const resultDiv = document.getElementById('dropdownResult');
+            
+            // Clear existing options
+            dropdown.innerHTML = '<option value="">Select Time</option>';
+            
+            // Get all times
+            const allTimes = getAll24hTimes();
+            
+            // Populate dropdown
+            allTimes.forEach(time => {
+                const option = document.createElement('option');
+                option.value = time;
+                console.log('Processing time slot:', time, 'Type:', typeof time);
+                const formattedTime = formatTime12h(time);
+                option.textContent = formattedTime;
+                console.log(`Time slot: "${time}" -> formatted: "${formattedTime}"`);
+                dropdown.appendChild(option);
+            });
+            
+            resultDiv.innerHTML = '<p class="success">✅ Dropdown populated successfully!</p>';
+            console.log('Dropdown population test completed');
+        }
+    </script>
+</body>
+</html> 
