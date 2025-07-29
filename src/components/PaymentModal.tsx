@@ -13,6 +13,13 @@ import { paymentsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+// Declare Cashfree types
+declare global {
+  interface Window {
+    Cashfree: any;
+  }
+}
+
 interface Booking {
   _id?: string; // MongoDB ID
   id: string; // Legacy ID for compatibility
@@ -39,7 +46,6 @@ interface Booking {
     taxes?: number;
     totalAmount?: number;
     duration?: number;
-    convenienceFee?: number;
   };
   amount?: number;
 }
@@ -106,14 +112,14 @@ const PaymentModal = ({
     }
 
     const discount = booking?.pricing?.discount ?? 0;
-    // --- Dynamic convenienceFee and totalAmount calculation ---
-    let convenienceFee = booking?.pricing?.convenienceFee ?? 0;
-    if (!convenienceFee && baseAmount > 0) {
-      convenienceFee = Math.round((baseAmount - discount) * 0.02);
+    // --- Dynamic taxes and totalAmount calculation ---
+    let taxes = booking?.pricing?.taxes ?? 0;
+    if (!taxes && baseAmount > 0) {
+      taxes = Math.round((baseAmount - discount) * 0.02);
     }
     let totalAmount = booking?.pricing?.totalAmount ?? 0;
     if (!totalAmount && baseAmount > 0) {
-      totalAmount = (baseAmount - discount) + convenienceFee;
+      totalAmount = (baseAmount - discount) + taxes;
     }
 
     return {
@@ -122,7 +128,7 @@ const PaymentModal = ({
       address,
       baseAmount,
       discount,
-      convenienceFee,
+      taxes,
       totalAmount,
       duration,
     };
@@ -168,19 +174,26 @@ const PaymentModal = ({
       console.log("Payment URL:", order.payment_url);
 
       if (!appId) {
-        throw new Error("Cashfree app ID missing from server response.");
+        throw new Error("Payment app ID missing from server response.");
       }
 
-      // Redirect to Cashfree payment page
-      const cashfreeUrl = order.payment_url || `https://payments.cashfree.com/pg/view/${order.payment_session_id}`;
-      
-      // Open in new window/tab
-      const paymentWindow = window.open(cashfreeUrl, '_blank', 'width=800,height=600');
-      
-      if (!paymentWindow) {
-        toast.error("Please allow popups to proceed with payment");
-        setIsProcessing(false);
-        return;
+      // Use Cashfree SDK for checkout
+      if (typeof window.Cashfree !== 'undefined') {
+        const cashfree = window.Cashfree({
+          mode: order.mode || "production"
+        });
+        
+        const checkoutOptions = {
+          paymentSessionId: order.payment_session_id,
+          redirectTarget: "_self"
+        };
+        
+        console.log("Opening Cashfree checkout with:", checkoutOptions);
+        cashfree.checkout(checkoutOptions);
+      } else {
+        // Fallback to direct redirect if SDK not loaded
+        const cashfreeUrl = order.payment_url || `https://payments.cashfree.com/pg/view/${order.payment_session_id}`;
+        window.location.href = cashfreeUrl;
       }
 
       // Poll for payment completion
@@ -193,7 +206,6 @@ const PaymentModal = ({
           });
 
           if ((verifyResponse as any)?.success) {
-            paymentWindow.close();
             toast.success("Payment successful! Booking confirmed.");
             onPaymentSuccess(booking);
             onClose();
@@ -302,7 +314,7 @@ const PaymentModal = ({
               )}
               <div className="flex justify-between text-sm">
                 <span>Convenience Fee (2%)</span>
-                <span>{formatCurrency(bookingData.convenienceFee)}</span>
+                <span>{formatCurrency(bookingData.taxes)}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-lg font-semibold text-cricket-green">

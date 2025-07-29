@@ -3,17 +3,34 @@ import crypto from "crypto";
 import { authMiddleware } from "../middleware/auth.js";
 import Booking from "../models/Booking.js";
 import Ground from "../models/Ground.js";
+import { Cashfree, CFEnvironment } from "cashfree-pg";
 
 // NOTE: For development, we use placeholder HTTPS URLs since Cashfree requires HTTPS
 // In production, these will be your actual domain URLs
 
 // Cashfree credentials
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || "10273687cc0f80bdee21e4c30d68637201";
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || "cfsk_ma_prod_09c55cbdb72bc613fbf861ab777f8b7b_2bcc3b72";
+const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
 const CASHFREE_API_URL = process.env.CASHFREE_API_URL || "https://api.cashfree.com/pg"; // Production API
 const CASHFREE_SANDBOX_URL = "https://sandbox.cashfree.com/pg"; // Sandbox API
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
-const IS_TEST_MODE = process.env.CASHFREE_MODE === 'test' || IS_DEVELOPMENT;
+const IS_TEST_MODE = process.env.CASHFREE_MODE === 'test';
+
+// Use sandbox mode only if explicitly set to test mode
+const USE_SANDBOX = IS_TEST_MODE;
+
+// Initialize Cashfree SDK
+const cashfree = new Cashfree(
+  USE_SANDBOX ? CFEnvironment.SANDBOX : CFEnvironment.PRODUCTION,
+  CASHFREE_APP_ID,
+  CASHFREE_SECRET_KEY
+);
+
+// Validate credentials
+if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
+  console.error("❌ Cashfree credentials not found in environment variables!");
+  console.error("   Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY for payment processing");
+}
 
 const router = express.Router();
 
@@ -26,28 +43,46 @@ router.get("/test-cashfree", async (req, res) => {
       secretKey: CASHFREE_SECRET_KEY ? "Present" : "Missing"
     });
     
-    // Test API connection by making a simple request
-    const apiUrl = IS_TEST_MODE ? CASHFREE_SANDBOX_URL : CASHFREE_API_URL;
-    const response = await fetch(`${apiUrl}/orders`, {
-      method: 'GET',
-      headers: {
-        'x-client-id': CASHFREE_APP_ID,
-        'x-client-secret': CASHFREE_SECRET_KEY,
-        'x-api-version': '2022-09-01',
-        'Content-Type': 'application/json'
-      }
-    });
+    if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
+      return res.status(400).json({
+        success: false,
+        message: "Cashfree credentials not configured",
+        error: "Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in environment variables"
+      });
+    }
     
-    if (response.ok) {
-      console.log("Cashfree connection successful");
+    try {
+      // Test with Cashfree SDK
+      const testOrderData = {
+        order_id: `test_${Date.now()}`,
+        order_amount: 100,
+        order_currency: "INR",
+        customer_details: {
+          customer_id: "test_customer",
+          customer_name: "Test Customer",
+          customer_phone: "9999999999",
+          customer_email: "test@example.com"
+        },
+        order_meta: {
+          return_url: "https://example.com/return",
+          notify_url: "https://example.com/webhook"
+        }
+      };
+
+      const response = await cashfree.PGCreateOrder(testOrderData);
+      console.log("Cashfree connection successful - test order created:", response.data.order_id);
+      
       res.json({
         success: true,
         message: "Cashfree connection successful",
-        appId: CASHFREE_APP_ID,
-        apiUrl: CASHFREE_API_URL
+        appId: CASHFREE_APP_ID.substring(0, 8) + "...",
+        mode: USE_SANDBOX ? "sandbox" : "production",
+        testOrderId: response.data.order_id,
+        paymentSessionId: response.data.payment_session_id
       });
-    } else {
-      throw new Error(`Cashfree API responded with status: ${response.status}`);
+    } catch (sdkError) {
+      console.error("Cashfree SDK error:", sdkError.response?.data || sdkError);
+      throw new Error(`Cashfree SDK error: ${sdkError.response?.data?.message || sdkError.message}`);
     }
   } catch (error) {
     console.error("Cashfree test failed:", error);
@@ -116,7 +151,7 @@ router.post("/create-order", authMiddleware, async (req, res) => {
       });
     }
 
-    // Create Cashfree order
+    // Create Cashfree order using SDK
     const orderData = {
       order_id: `order_${booking._id}_${Date.now()}`,
       order_amount: totalAmount,
@@ -139,29 +174,42 @@ router.post("/create-order", authMiddleware, async (req, res) => {
     };
 
     console.log("Creating Cashfree order with:", orderData);
-    console.log("Test mode:", IS_TEST_MODE);
+    console.log("Test mode:", USE_SANDBOX);
 
-    const apiUrl = IS_TEST_MODE ? CASHFREE_SANDBOX_URL : CASHFREE_API_URL;
-    console.log("Using API URL:", apiUrl);
-    const response = await fetch(`${apiUrl}/orders`, {
-      method: 'POST',
-      headers: {
-        'x-client-id': CASHFREE_APP_ID,
-        'x-client-secret': CASHFREE_SECRET_KEY,
-        'x-api-version': '2022-09-01',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(orderData)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Cashfree API error: ${response.status}`);
+    // Check if credentials are available
+    if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
+      console.error("Cashfree credentials not configured!");
+      return res.status(500).json({
+        success: false,
+        message: "Payment gateway not configured. Please contact support."
+      });
+    }
+    
+    let response;
+    try {
+      response = await cashfree.PGCreateOrder(orderData);
+      console.log("Cashfree order created successfully:", response.data.order_id);
+    } catch (sdkError) {
+      console.error("Cashfree SDK error:", sdkError.response?.data || sdkError);
+      
+      // Handle authentication errors specifically
+      if (sdkError.response?.status === 401 || sdkError.response?.status === 403) {
+        throw new Error("Cashfree authentication failed. Please check API credentials.");
+      }
+      
+      throw new Error(sdkError.response?.data?.message || sdkError.message || "Failed to create Cashfree order");
     }
 
-    const order = await response.json();
+    // Extract order data from SDK response
+    const order = response.data;
     console.log("Cashfree order created:", order.order_id);
     console.log("Full Cashfree response:", JSON.stringify(order, null, 2));
+
+    // Validate required fields from Cashfree response
+    if (!order.order_id || !order.payment_session_id) {
+      console.error("Invalid Cashfree response - missing required fields:", order);
+      throw new Error("Invalid response from Cashfree - missing order_id or payment_session_id");
+    }
 
     // Update booking with payment order details
     booking.payment = {
@@ -173,6 +221,13 @@ router.post("/create-order", authMiddleware, async (req, res) => {
 
     console.log("Booking updated with payment details");
 
+    // Generate payment URL
+    const paymentUrl = order.payment_link || (USE_SANDBOX 
+      ? `https://sandbox.cashfree.com/pg/view/${order.payment_session_id}`
+      : `https://payments.cashfree.com/pg/view/${order.payment_session_id}`);
+
+    console.log("Generated payment URL:", paymentUrl);
+
     res.json({
       success: true,
       order: {
@@ -181,12 +236,10 @@ router.post("/create-order", authMiddleware, async (req, res) => {
         currency: order.order_currency,
         payment_session_id: order.payment_session_id,
         order_status: order.order_status,
-        payment_url: order.payment_link || (IS_TEST_MODE 
-          ? `https://sandbox.cashfree.com/pg/view/${order.payment_session_id}`
-          : `https://payments.cashfree.com/pg/view/${order.payment_session_id}`),
+        payment_url: paymentUrl,
       },
       appId: CASHFREE_APP_ID,
-      apiUrl: CASHFREE_API_URL
+      mode: USE_SANDBOX ? "sandbox" : "production"
     });
   } catch (error) {
     console.error('Cashfree order creation error:', error);
@@ -217,25 +270,16 @@ router.post("/verify-payment", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid booking ID" });
     }
 
-    // Verify payment with Cashfree
-    const apiUrl = IS_TEST_MODE ? CASHFREE_SANDBOX_URL : CASHFREE_API_URL;
-    const response = await fetch(`${apiUrl}/orders/${order_id}`, {
-      method: 'GET',
-      headers: {
-        'x-client-id': CASHFREE_APP_ID,
-        'x-client-secret': CASHFREE_SECRET_KEY,
-        'x-api-version': '2022-09-01',
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Cashfree verification error:", errorText);
-      throw new Error(`Failed to verify payment with Cashfree: ${response.status} - ${errorText}`);
+    // Verify payment with Cashfree using SDK
+    let paymentDetails;
+    try {
+      const response = await cashfree.PGFetchOrder(order_id);
+      paymentDetails = response.data;
+      console.log("Payment verification successful:", paymentDetails.order_status);
+    } catch (sdkError) {
+      console.error("Cashfree verification error:", sdkError.response?.data || sdkError);
+      throw new Error(`Failed to verify payment with Cashfree: ${sdkError.response?.data?.message || sdkError.message}`);
     }
-
-    const paymentDetails = await response.json();
     
     // Check if payment is successful
     if (paymentDetails.order_status === 'PAID') {

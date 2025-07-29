@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -327,11 +327,10 @@ const NewBookingModal: React.FC<NewBookingModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-2xl w-full rounded-3xl p-0 overflow-hidden shadow-2xl border-0 bg-gradient-to-br from-white to-gray-50"
-        aria-describedby="booking-modal-description"
       >
-        <div id="booking-modal-description" className="sr-only">
+        <DialogDescription className="sr-only">
           Book a cricket ground slot by selecting date, time, and providing contact details.
-        </div>
+        </DialogDescription>
         <div className="relative bg-gradient-to-r from-green-600 via-green-500 to-emerald-500 px-8 py-6 text-white">
           <div className="absolute inset-0 bg-black/10"></div>
           <DialogHeader className="relative z-10">

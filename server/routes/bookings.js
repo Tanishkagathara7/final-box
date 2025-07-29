@@ -54,7 +54,7 @@ export function getPricing(ground, timeSlot) {
   return {
     baseAmount,
     discount,
-    convenienceFee,
+    taxes: convenienceFee, // Changed to match Booking schema
     totalAmount,
     duration,
   };
@@ -62,8 +62,26 @@ export function getPricing(ground, timeSlot) {
 
 // Create a booking (authenticated)
 router.post("/", authMiddleware, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // Check if MongoDB is connected
+  const isMongoConnected = req.app.get("mongoConnected")();
+  if (!isMongoConnected) {
+    return res.status(503).json({ 
+      success: false, 
+      message: "Database connection is not available. Please try again later." 
+    });
+  }
+
+  let session;
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+  } catch (sessionError) {
+    console.error("Failed to create MongoDB session:", sessionError);
+    return res.status(503).json({ 
+      success: false, 
+      message: "Database session creation failed. Please try again." 
+    });
+  }
   
   try {
     const { groundId, bookingDate, timeSlot, playerDetails, requirements } = req.body;
@@ -156,8 +174,13 @@ router.post("/", authMiddleware, async (req, res) => {
     
     if (isValidObjectId) {
       // Try to find in MongoDB
-      ground = await Ground.findById(groundId);
-      console.log("MongoDB ground found:", !!ground);
+      try {
+        ground = await Ground.findById(groundId);
+        console.log("MongoDB ground found:", !!ground);
+      } catch (groundError) {
+        console.error("Error finding ground in MongoDB:", groundError);
+        // Continue to fallback
+      }
     }
     
     // If not found in MongoDB, check fallback data
@@ -194,40 +217,48 @@ router.post("/", authMiddleware, async (req, res) => {
 
     // Check if slot is already booked (only for MongoDB grounds)
     if (isValidObjectId) {
-      // Find any booking that overlaps with the requested slot
-      const existingBookings = await Booking.find({
-        groundId,
-        bookingDate: new Date(bookingDate),
-        status: { $in: ["pending", "confirmed"] }
-      }).session(session);
+      try {
+        // Find any booking that overlaps with the requested slot
+        const existingBookings = await Booking.find({
+          groundId,
+          bookingDate: new Date(bookingDate),
+          status: { $in: ["pending", "confirmed"] }
+        }).session(session);
 
-      // Check for overlaps using JavaScript logic
-      console.log(`Checking for overlaps with ${existingBookings.length} existing bookings`);
-      const overlappingBooking = existingBookings.find(booking => {
-        const bookingStart = new Date(`2000-01-01 ${booking.timeSlot.startTime}`);
-        const bookingEnd = new Date(`2000-01-01 ${booking.timeSlot.endTime}`);
-        
-        const hasOverlap = start < bookingEnd && end > bookingStart;
-        if (hasOverlap) {
-          console.log(`Found overlap: New booking (${startTime}-${endTime}) overlaps with existing booking (${booking.timeSlot.startTime}-${booking.timeSlot.endTime})`);
+        // Check for overlaps using JavaScript logic
+        console.log(`Checking for overlaps with ${existingBookings.length} existing bookings`);
+        const overlappingBooking = existingBookings.find(booking => {
+          const bookingStart = new Date(`2000-01-01 ${booking.timeSlot.startTime}`);
+          const bookingEnd = new Date(`2000-01-01 ${booking.timeSlot.endTime}`);
+          
+          const hasOverlap = start < bookingEnd && end > bookingStart;
+          if (hasOverlap) {
+            console.log(`Found overlap: New booking (${startTime}-${endTime}) overlaps with existing booking (${booking.timeSlot.startTime}-${booking.timeSlot.endTime})`);
+          }
+          
+          return hasOverlap;
+        });
+
+        if (overlappingBooking) {
+          console.log("Slot overlaps with an existing booking:", overlappingBooking.bookingId);
+          return res.status(400).json({ 
+            success: false, 
+            message: `This time slot (${startTime}-${endTime}) overlaps with an existing booking (${overlappingBooking.timeSlot.startTime}-${overlappingBooking.timeSlot.endTime}). Please select a different time.` 
+          });
         }
-        
-        return hasOverlap;
-      });
-
-      if (overlappingBooking) {
-        console.log("Slot overlaps with an existing booking:", overlappingBooking.bookingId);
-        return res.status(400).json({ 
+      } catch (overlapError) {
+        console.error("Error checking for overlaps:", overlapError);
+        return res.status(500).json({ 
           success: false, 
-          message: `This time slot (${startTime}-${endTime}) overlaps with an existing booking (${overlappingBooking.timeSlot.startTime}-${overlappingBooking.timeSlot.endTime}). Please select a different time.` 
+          message: "Error checking booking availability. Please try again." 
         });
       }
     }
 
     // Calculate pricing
-    const { baseAmount, discount, convenienceFee, totalAmount, duration: calcDuration } = getPricing(ground, { startTime, endTime, duration });
+    const { baseAmount, discount, taxes, totalAmount, duration: calcDuration } = getPricing(ground, { startTime, endTime, duration });
 
-    console.log("Pricing calculation:", { baseAmount, discount, convenienceFee, totalAmount });
+    console.log("Pricing calculation:", { baseAmount, discount, taxes, totalAmount });
 
     // Generate unique booking ID
     const bookingId = generateBookingId();
@@ -252,7 +283,7 @@ router.post("/", authMiddleware, async (req, res) => {
       pricing: {
         baseAmount,
         discount,
-        convenienceFee,
+        taxes,
         totalAmount,
         currency: "INR"
       },
@@ -260,12 +291,22 @@ router.post("/", authMiddleware, async (req, res) => {
     });
 
     console.log("Saving booking...");
-    await booking.save({ session });
-    console.log("Booking saved successfully");
+    try {
+      await booking.save({ session });
+      console.log("Booking saved successfully");
+    } catch (saveError) {
+      console.error("Error saving booking:", saveError);
+      throw new Error(`Failed to save booking: ${saveError.message}`);
+    }
 
     // Populate ground details if it's a MongoDB ground
     if (isValidObjectId) {
-      await booking.populate("groundId", "name location price features");
+      try {
+        await booking.populate("groundId", "name location price features");
+      } catch (populateError) {
+        console.error("Error populating ground details:", populateError);
+        // Continue without population
+      }
     } else {
       // For fallback grounds, manually add ground details
       booking.groundId = ground;
@@ -273,21 +314,39 @@ router.post("/", authMiddleware, async (req, res) => {
 
     console.log("Booking created successfully:", booking.bookingId);
     
-    await session.commitTransaction();
-    res.json({ 
-      success: true, 
-      booking: booking.toObject() 
-    });
+    try {
+      await session.commitTransaction();
+      res.json({ 
+        success: true, 
+        booking: booking.toObject() 
+      });
+    } catch (commitError) {
+      console.error("Error committing transaction:", commitError);
+      throw new Error(`Failed to commit booking transaction: ${commitError.message}`);
+    }
 
   } catch (error) {
-    await session.abortTransaction();
+    if (session) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Failed to abort transaction:", abortError);
+      }
+    }
     console.error("Error creating booking:", error);
     res.status(500).json({ 
       success: false, 
-      message: "Failed to create booking" 
+      message: "Failed to create booking",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   } finally {
-    session.endSession();
+    if (session) {
+      try {
+        session.endSession();
+      } catch (endSessionError) {
+        console.error("Failed to end session:", endSessionError);
+      }
+    }
   }
 });
 
@@ -940,7 +999,7 @@ adminRouter.post("/", async (req, res) => {
       baseAmount,
       discount,
       discountedAmount,
-      convenienceFee,
+      taxes: convenienceFee,
       totalAmount
     });
 
@@ -994,7 +1053,7 @@ adminRouter.post("/", async (req, res) => {
       pricing: {
         baseAmount,
         discount,
-        convenienceFee,
+        taxes: convenienceFee,
         totalAmount,
         currency: "INR"
       }
@@ -1019,7 +1078,7 @@ adminRouter.post("/", async (req, res) => {
       pricing: {
         baseAmount,
         discount,
-        convenienceFee,
+        taxes: convenienceFee,
         totalAmount,
         currency: "INR"
       },
