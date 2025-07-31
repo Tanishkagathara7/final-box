@@ -17,11 +17,6 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "es2015",
     minify: "esbuild",
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
-      },
-    },
   },
   optimizeDeps: {
     include: ["react", "react-dom"],

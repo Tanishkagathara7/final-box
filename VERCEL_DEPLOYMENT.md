@@ -80,12 +80,10 @@ After deployment, test these endpoints:
 - All routes should redirect to `index.html`
 
 ### **If build fails (Rollup/Rollup-linux error):**
-- ✅ **FIXED**: Added `.npmrc` with `legacy-peer-deps=true` and `force=true`
-- ✅ **FIXED**: Updated `vercel.json` with `installCommand: "npm install --legacy-peer-deps --force"`
-- ✅ **FIXED**: Updated `vite.config.ts` with build optimizations and esbuild minification
-- ✅ **FIXED**: Downgraded Vite to v5.4.0 for better stability
-- ✅ **FIXED**: Added package overrides for Rollup dependencies
-- ✅ **FIXED**: Changed build command to `npx vite build`
+- ✅ **FIXED**: Added `.npmrc` with `legacy-peer-deps=true`, `force=true`, and `omit=optional`
+- ✅ **FIXED**: Updated `vercel.json` with `installCommand: "npm install --legacy-peer-deps --force --omit=optional"`
+- ✅ **FIXED**: Updated `vite.config.ts` with simplified build configuration
+- ✅ **FIXED**: Using standard `npm run build` command with proper flags
 
 ### **If you still get build errors:**
 - Check that all dependencies are in `package.json`

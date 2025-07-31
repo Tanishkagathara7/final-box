@@ -6,7 +6,7 @@
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "vite",
     "dev:backend": "nodemon server/index.js",
-    "build": "vite build --mode production",
+    "build": "vite build",
     "vercel-build": "vite build",
     "test": "vitest --run",
     "format.fix": "prettier --write .",
@@ -105,10 +105,5 @@
   },
   "engines": {
     "node": "20.x"
-  },
-  "overrides": {
-    "rollup": {
-      "@rollup/rollup-linux-x64-gnu": "4.9.5"
-    }
   }
 }
