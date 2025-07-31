@@ -265,7 +265,7 @@ const createTransporter = () => {
     console.log("⚠️  Email configuration not found. Using development mode - OTPs will be logged to console.");
     return null;
   }
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT),
     secure: Number(process.env.EMAIL_PORT) === 465,
