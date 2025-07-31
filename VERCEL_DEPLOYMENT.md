@@ -79,9 +79,18 @@ After deployment, test these endpoints:
 - The `vercel.json` includes a rewrite rule for client-side routing
 - All routes should redirect to `index.html`
 
-### **If build fails:**
+### **If build fails (Rollup/Rollup-linux error):**
+- ✅ **FIXED**: Added `.npmrc` with `legacy-peer-deps=true` and `force=true`
+- ✅ **FIXED**: Updated `vercel.json` with `installCommand: "npm install --legacy-peer-deps --force"`
+- ✅ **FIXED**: Updated `vite.config.ts` with build optimizations and esbuild minification
+- ✅ **FIXED**: Downgraded Vite to v5.4.0 for better stability
+- ✅ **FIXED**: Added package overrides for Rollup dependencies
+- ✅ **FIXED**: Changed build command to `npx vite build`
+
+### **If you still get build errors:**
 - Check that all dependencies are in `package.json`
 - Ensure Node.js version is compatible (check `.nvmrc`)
+- Try clearing Vercel cache in project settings
 
 ## 📝 Notes
 
