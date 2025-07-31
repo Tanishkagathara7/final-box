@@ -26,7 +26,7 @@ interface Booking {
   status: string;
 }
 
-const API = "http://localhost:3001";
+const API = "https://final-box.onrender.com";
 
 function getToken() {
   return localStorage.getItem("token");

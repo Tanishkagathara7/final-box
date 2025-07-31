@@ -1,7 +1,7 @@
 import axios from "axios";
 import { isMongoObjectId } from "./utils";
 
-const API_BASE_URL = "https://box-cricket-axv9.onrender.com";
+const API_BASE_URL = "https://final-box.onrender.com";
 
 // Create axios instance
 const api = axios.create({

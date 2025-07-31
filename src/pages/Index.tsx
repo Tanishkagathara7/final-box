@@ -182,7 +182,7 @@ const Index = () => {
     const testAPI = async () => {
       try {
         console.log("🧪 Testing API connection...");
-        const response = await fetch("http://localhost:3001/api/test");
+        const response = await fetch("https://final-box.onrender.com/api/test");
         const data = await response.json();
         console.log("✅ API Test Result:", data);
       } catch (error) {
