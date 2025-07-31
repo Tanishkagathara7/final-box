@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "es2015",
     minify: "esbuild",
+    rollupOptions: {
+      external: [],
+    },
   },
   optimizeDeps: {
     include: ["react", "react-dom"],
